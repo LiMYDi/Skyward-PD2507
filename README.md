@@ -120,7 +120,7 @@ cargo install cargo-ndk --locked
 
 ```bash
 fastboot getvar current-slot        # 确认槽位，通常是 a
-fastboot flash recovery_a out/skyward-pd2301.img
+fastboot flash recovery_<slot> out/skyward-pd2301.img
 fastboot reboot recovery
 ```
 
