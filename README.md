@@ -120,8 +120,10 @@ Skyward 的 fastbootd 使用 AOSP 标准 `VID_18D1 & PID_4EE0`，接口类为
 
 ## 开发人员名单
 
-- 致谢：原作者[Kirk Lin](https://github.com/kirklin) —— Skyward 本体
-- 适配工作：**酷安 @TNTHe、@Moecho**
+- 致谢：原作者 [Kirk Lin](https://github.com/kirklin) —— Skyward 本体
+- 适配工作：**酷安 @TNTHe（GitHub [@Qingizi7](https://github.com/Qingizi7)）、@Moecho**
+
+本仓库由 **@Qingizi7（酷安 @TNTHe）** 维护。
 
 免费资源，禁止倒卖。如果你是买来的，那么就是被骗了。
 
