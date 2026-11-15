@@ -1,12 +1,11 @@
 # Skyward Recovery for iQOO Neo8（PD2301 / V2301A）
 
-vivo iQOO Neo8 的第三方 Recovery，基于 [Kirk Lin](https://github.com/) 的 **Skyward** 移植适配。
+vivo iQOO Neo8 的第三方 Recovery，基于 [Kirk Lin](https://github.com/kirklin) 的 [Skyward](https://github.com/kirklin/skyward) 移植适配。
 
 Skyward 不是一个自制的 TWRP 内核，而是一个用 Rust 重写的独立 recovery：自己画界面、自己做输入与解密，
 设备信息、密钥服务等全部从手机已安装系统的分区里读取，而不是硬编码在配置里。
 
-> 本仓库只包含**源码与构建脚本**，不包含任何原厂分区镜像（`stock/` 已被忽略），
-> 也不包含构建产物（`out/`）。
+> 本仓库只包含**源码与构建脚本**，不包含任何原厂分区镜像，刷入第三方rec前请做好备份
 
 ---
 
@@ -27,6 +26,7 @@ Skyward 不是一个自制的 TWRP 内核，而是一个用 Rust 重写的独立
 
 | 功能 | 状态 | 备注 |
 | --- | --- | --- |
+| 显示/触摸/亮度 | ✅ | --- |
 | data 解密（FBE） | ✅ | 输锁屏密码解密，依赖 KeyMint + Gatekeeper |
 | 安装 ZIP / 镜像 | ✅ | 含原厂完整包、boot/recovery 等分区镜像 |
 | 备份 / 恢复 | ✅ | 支持 EFS 分区与 metadata |
@@ -118,9 +118,9 @@ Skyward 的 fastbootd 使用 AOSP 标准 `VID_18D1 & PID_4EE0`，接口类为
 - 端口同一时间只能是「设备」或「主机」：开 OTG 读 U 盘时 adb 会断开，拔掉后恢复。
 - 未测试加密状态下的侧载 OTA。
 
-## 致谢
+## 开发人员名单
 
-- 原作者：**@Kirk Lin** —— Skyward 本体
+- 致谢：原作者[Kirk Lin](https://github.com/kirklin) —— Skyward 本体
 - 适配工作：**酷安 @TNTHe、@Moecho**
 
 免费资源，禁止倒卖。如果你是买来的，那么就是被骗了。
