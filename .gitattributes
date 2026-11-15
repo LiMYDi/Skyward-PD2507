@@ -1,0 +1,8 @@
+# 源码保持 LF，避免在 Windows 上被转成 CRLF
+* text=auto eol=lf
+
+*.png binary
+*.ttf  binary
+*.so   binary
+*.a    binary
+*.img  binary

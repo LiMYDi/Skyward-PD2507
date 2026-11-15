@@ -1,0 +1,13 @@
+# 构建产物
+/out/
+# 原厂镜像（体积大，且属于厂商资源，不随源码分发）
+/stock/
+# 构建日志
+/logs/
+# 上游源码的 Rust 构建缓存
+/upstream/target/
+
+# 其他
+*.img
+.DS_Store
+Thumbs.db

@@ -1,0 +1,53 @@
+# Skyward device configuration for vivo iQOO Neo8 (PD2301 / V2301A)
+# Platform: SM8475 (Snapdragon 8+ Gen 1), 1260x2800, A/B + dynamic partitions.
+
+[device]
+codename = "PD2301"
+brand = "vivo"
+model = "iQOO Neo8"
+shown_model = "iQOO Neo8"
+ab = true
+soc = { hans = "第一代骁龙8+移动平台", hant = "第一代驍龍8+移動平台", en = "Snapdragon 8+ Gen 1 Mobile Platform" }
+os_version_prop = "ro.vivo.build.version.incremental"
+# 显示在「设备信息 → Recovery 版本」下面
+authors = "原作者：@Kirk Lin / 适配工作：酷安@TNTHe，@Moecho\n免费资源，禁止倒卖。如果你是买来的，那么就是被骗了。"
+
+[display]
+width = 1260
+height = 2800
+density = 560
+
+[modules]
+sources = ["vendor", "vendor_dlkm"]
+load = ["vivo_ts"]
+
+[usb]
+# vivo 的 vusb 驱动默认只做设备端；写成 enabled 后，插 OTG 转接才会切到主机模式，
+# 否则 U 盘永远枚举不出来（而接电脑时仍然是设备端，adb 正常）。
+host_mode = { path = "/sys/devices/virtual/vusb/usb0/host_mode", value = "enabled" }
+
+[haptics]
+# 这机器的马达由 vivo 私有驱动播放，没有 force-feedback 输入设备，
+# 只能写 qcom-haptics 的时长 + 触发接口。
+strength = { lightest = 0.4, strongest = 1.0 }
+timed = { duration = "/sys/class/qcom-haptics/duration", activate = "/sys/class/qcom-haptics/activate", click = 40, ticks = 15 }
+
+[wlan]
+# QCA6490 (WCN6855/WCN6856), as the stock recovery brings it up.
+modules = ["qca_cld3_qca6490"]
+writes = [{ path = "/sys/devices/platform/soc/b0000000.qcom,cnss-qca6490/fs_ready", value = "1" }]
+firmware = [
+    { name = "wlan/qca_cld/qca6490/WCNSS_qcom_cfg.ini", path = "/vendor/etc/wifi/qca6490/WCNSS_qcom_cfg.ini" },
+]
+interface = "wlan0"
+supplicant = "/system/bin/wpa_supplicant"
+libraries = ["/system/lib64", "/vendor/lib64"]
+service = "android.hardware.wifi.supplicant.ISupplicant/default"
+# QTI 的 supplicant 启动时还会注册 vendor AIDL 实例，而 vivo 的 VINTF 只把它
+# 声明成 HIDL；不告知 servicemanager 的话注册被拒，wpa_supplicant 立刻退出(255)。
+services = ["vendor.qti.hardware.wifi.supplicant.ISupplicantVendor/default"]
+probe = "http://connect.rom.miui.com/generate_204"
+
+[backup]
+efs = ["modemst1", "modemst2", "fsg", "fsc", "persist"]
+data_skipped = ["vendor/fingerprint", "vendor/faceunlock"]
