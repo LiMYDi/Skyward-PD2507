@@ -89,3 +89,14 @@ jobs:
           path: out/vendor_boot_pd2507.img
           compression-level: 0
           retention-days: 14
+
+      # The recovery program and its first-stage helper on their own: the
+      # image is 128 MB, these are a few, so a slow link can be worked
+      # around by splicing them into a stock vendor_boot on the phone.
+      - uses: actions/upload-artifact@v4
+        with:
+          name: skyward-bin
+          path: |
+            upstream/target/aarch64-linux-android/release/skyward
+            upstream/target/system-init/aarch64-linux-android/release/system-init
+          retention-days: 14
