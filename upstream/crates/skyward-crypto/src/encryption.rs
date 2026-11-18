@@ -28,7 +28,14 @@ pub struct Encryption {
 impl Encryption {
     /// Read what an entry of the phone's own table says.
     pub fn of(entry: &Entry) -> Result<Encryption> {
-        let said = entry.extra("metadata_encryption").context("the phone says its data partition is not encrypted whole")?;
+        // vivo's table names the folder the metadata key is kept in rather
+        // than the cipher, which is then the one vold encrypts metadata with
+        // unless told otherwise.
+        let said = match entry.extra("metadata_encryption") {
+            Some(said) => said,
+            None if entry.extra("keydirectory").is_some() => "aes-256-xts:aes-256-cts",
+            None => anyhow::bail!("the phone says its data partition is not encrypted whole"),
+        };
         let (name, rest) = said.split_once(':').unwrap_or((said, ""));
         let cipher = CIPHERS
             .iter()
