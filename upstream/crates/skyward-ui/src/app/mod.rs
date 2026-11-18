@@ -1455,8 +1455,12 @@ impl App {
         }
         if let Some(b) = self.bounce {
             self.dirty = true;
-            if b.at(now).1 {
+            // Whatever the animation says, a page never stays out past its
+            // end: a spring that has run far longer than any it starts with
+            // is put back by hand, so nothing can leave the page blank.
+            if b.at(now).1 || b.age(now) > 1500 {
                 self.bounce = None;
+                self.pull = 0.0;
             }
         }
         if let Some((target, spring)) = self.seek {
@@ -1544,11 +1548,16 @@ impl App {
     /// How far past its end the page shows at `now`: negative past the
     /// top, positive past the bottom.
     fn overscroll(&self, now: u64) -> f32 {
-        if self.pull != 0.0 {
+        // The page answers a finger past its end, but only a little: enough
+        // that the end feels elastic, never enough to open a band of empty
+        // page that reads as the screen going blank.
+        const MOST: f32 = 28.0;
+        let out = if self.pull != 0.0 {
             motion::rubber(self.pull, self.h as f32)
         } else {
             self.bounce.map_or(0.0, |b| b.at(now).0)
-        }
+        };
+        out.clamp(-MOST, MOST)
     }
 
     /// Something laid over the page changed (the clock): compose again.
