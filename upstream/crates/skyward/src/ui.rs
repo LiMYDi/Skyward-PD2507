@@ -152,7 +152,14 @@ const NORMAL_MAX: [(&str, &str); 4] = [
 /// display driver booted with gives that maximum in the device tree.
 fn normal_max(max: u32) -> Result<u32> {
     let param = "/sys/module/msm_drm/parameters/dsi_display0";
-    let boot = fs::read_to_string(param).with_context(|| format!("read {param}"))?;
+    // Only Qualcomm's display driver names its panel here.  A panel whose
+    // driver does not, as MediaTek's does not, has no high brightness mode
+    // to stay out of: the whole backlight range is the slider's own.
+    let boot = match fs::read_to_string(param) {
+        Ok(text) => text,
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(max),
+        Err(e) => return Err(e).with_context(|| format!("read {param}")),
+    };
     // The panel's node, then its configuration after a colon, as in
     // "qcom,mdss_dsi_m1_42_02_0a_dsc_cmd:"; the driver takes no name
     // without the colon either.
