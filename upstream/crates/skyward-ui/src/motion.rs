@@ -17,6 +17,11 @@ impl Spring {
         Spring { start, from, velocity, omega: std::f32::consts::TAU / period }
     }
 
+    /// How long it has been running at `now`, in milliseconds.
+    pub fn age(&self, now: u64) -> u64 {
+        now.saturating_sub(self.start)
+    }
+
     /// Where the spring is at `now`, and whether it has settled: back
     /// within half a unit of rest after any swing out.
     pub fn at(&self, now: u64) -> (f32, bool) {
