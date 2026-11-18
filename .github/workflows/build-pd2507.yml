@@ -1,12 +1,22 @@
 name: build-pd2507
 
-# Builds Skyward for the vivo iQOO Z10 Turbo+ (PD2507 / V2507A) on a normal
-# x86_64 runner and uploads a flashable vendor_boot image.  Nothing here
-# touches a phone: the stock image is taken out of vivo's own full package
-# over HTTP ranges.
+# Builds Skyward for the vivo iQOO Z10 Turbo+ (PD2507 / V2507A) from Kirk Lin's
+# upstream, on a normal x86_64 runner, and uploads a flashable vendor_boot
+# image.  Nothing here touches a phone: the stock image is taken out of vivo's
+# own full package over HTTP ranges.
+#
+# PD2507 has no recovery partition: recovery is the RECOVERY fragment inside
+# vendor_boot, and the stock ramdisk is LZ4-legacy packed.  tools/pd2507/build.py
+# pulls that fragment out of the package, hands it to skyward-pack as a boot
+# image, and puts the result back into the same vendor_boot.
 
 on:
   workflow_dispatch:
+    inputs:
+      stock_url:
+        description: "可选：用你自己的 vendor_boot 备份当底包（直链 URL），留空则从官方全量包取"
+        required: false
+        default: ""
 
 jobs:
   build:
@@ -15,8 +25,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Rust toolchain (upstream/rust-toolchain.toml pins it)
-        working-directory: upstream
+      - name: Rust toolchain (rust-toolchain.toml pins it)
         run: |
           rustup show
           rustup target list --installed
@@ -33,36 +42,35 @@ jobs:
       - name: cargo-ndk
         run: cargo install cargo-ndk --locked
 
-      - name: Python bits for the OTA reader
-        run: pip install --no-cache-dir zstandard lz4
-
       # skyward-pack compresses the ramdisk with the reference `lz4` tool.
-      - name: lz4 (CLI)
-        run: sudo apt-get update -qq && sudo apt-get install -y -qq lz4
+      - name: lz4 (CLI) and Python bits
+        run: |
+          sudo apt-get update -qq && sudo apt-get install -y -qq lz4
+          pip install --no-cache-dir zstandard lz4
 
       - name: Build skyward-pack (host)
-        working-directory: upstream
         run: cargo build --release -p skyward-pack
 
       - name: Build skyward (arm64)
-        working-directory: upstream
         run: cargo ndk -t arm64-v8a --platform 30 build --release -p skyward
 
       - name: Build skyward-system-init (static)
-        working-directory: upstream
         env:
           RUSTFLAGS: "-C target-feature=+crt-static"
         run: cargo ndk -t arm64-v8a --platform 30 build --release -p skyward-system-init --target-dir target/system-init
 
       - name: Pack vendor_boot for PD2507
         run: |
+          EXTRA=""
+          if [ -n "${{ inputs.stock_url }}" ]; then EXTRA="--stock-url ${{ inputs.stock_url }}"; fi
           python3 tools/pd2507/build.py \
-            --pack upstream/target/release/skyward-pack \
-            --binary upstream/target/aarch64-linux-android/release/skyward \
-            --system-init upstream/target/system-init/aarch64-linux-android/release/system-init \
+            --pack target/release/skyward-pack \
+            --binary target/aarch64-linux-android/release/skyward \
+            --system-init target/system-init/aarch64-linux-android/release/system-init \
             --config devices/pd2507.toml \
-            --fonts upstream/resources/fonts \
+            --fonts resources/fonts \
             --work out/pd2507 \
+            $EXTRA \
             --out out/vendor_boot_pd2507.img
 
       - name: Sum
