@@ -69,11 +69,7 @@ impl App {
         let top = self.top_mut();
         let next = top.1 + d;
         top.1 = next.clamp(0.0, max);
-        // A page stops at its ends instead of being pulled past them: what
-        // would be drawn there is nothing, which reads as the page going
-        // blank, and the spring that brings it back stutters on panels whose
-        // frames are slow to draw.
-        self.pull = 0.0;
+        self.pull = next - top.1;
     }
 }
 
