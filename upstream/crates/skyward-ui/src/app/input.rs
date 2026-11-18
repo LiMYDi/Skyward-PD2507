@@ -112,9 +112,7 @@ impl App {
                     action,
                     self.frame.is_some()
                 );
-                if action.is_none()
-                    && let Some(fr) = self.frame.as_ref()
-                {
+                if let Some(fr) = self.frame.as_ref() {
                     // Where this page thinks its buttons are, so that a press
                     // that hit nothing can be compared with what is drawn.
                     let rects: Vec<_> = fr
