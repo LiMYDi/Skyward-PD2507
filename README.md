@@ -1,157 +1,93 @@
-# Skyward Recovery for iQOO Neo8（PD2301 / V2301A）
+# Skyward Recovery for iQOO Z10 Turbo+（PD2507 / V2507A）
 
-vivo iQOO Neo8 的第三方 Recovery，基于 [Kirk Lin](https://github.com/kirklin) 的 [Skyward](https://github.com/kirklin/skyward) 移植适配。
+vivo iQOO Z10 Turbo+ 的第三方 Recovery —— 基于 [kirklin/skyward](https://github.com/kirklin/skyward)，
+经由 [Qingizi7/Skyward-PD2301](https://github.com/Qingizi7/Skyward-PD2301)（酷安 @TNTHe 的 iQOO Neo8 适配）移植而来。
 
-Skyward 不是一个自制的 TWRP 内核，而是一个用 Rust 重写的独立 recovery：自己画界面、自己做输入与解密，
-设备信息、密钥服务等全部从手机已安装系统的分区里读取，而不是硬编码在配置里。
-
-> 本仓库只包含**源码与构建脚本**，不包含任何原厂分区镜像，刷入第三方rec前请做好备份
+> ⚠️ **本仓库产出的镜像还没有在任何真机上启动过。** 结构校验通过，但没有跑起来过，
+> 刷入前请先备份原厂 `vendor_boot`，详见下文「风险」。
 
 ---
+
+## 这台机器和 Neo8 的根本区别
+
+PD2301（iQOO Neo8）有独立的 `recovery` 分区，刷 `recovery_<slot>` 即可。
+**PD2507 没有 recovery 分区**——recovery 是 `vendor_boot` 里的一个 ramdisk 片段：
+
+| 项目 | PD2301（Neo8） | PD2507（Z10 Turbo+） |
+| --- | --- | --- |
+| 平台 | SM8475，骁龙 8+ Gen 1 | **mt6991，天玑 9400+（联发科）** |
+| recovery 位置 | `recovery_a` / `recovery_b` 分区 | **`vendor_boot` 内的 RECOVERY 片段（58 MB，type=2）** |
+| 刷写目标 | `fastboot flash recovery_a` | 改写 `vendor_boot_a` |
+| fstab | `fstab.qcom` | `first_stage_ramdisk/fstab.emmc`（`ro.hardware=emmc`） |
+| 其他 | 无 `init_boot` | `boot` + `init_boot` + `vendor_boot`，动态分区 + A/B |
+
+所以**本仓库不能照搬 PD2301 的刷写方法**，也**不能**把这里产出的镜像刷进 `recovery` 分区（那台机器没有）。
 
 ## 设备
 
 | 项目 | 值 |
 | --- | --- |
-| 机型 | iQOO Neo8（V2301A） |
-| 代号 | PD2301 |
-| 平台 | SM8475，第一代骁龙 8+（Snapdragon 8+ Gen 1） |
-| 屏幕 | 1260 × 2800，density 560 |
+| 机型 | iQOO Z10 Turbo+（V2507A） |
+| 代号 | PD2507 |
+| 平台 | mt6991，天玑 9400+ |
+| 屏幕 | 1260 × 2800，density 560（推断值，待实机校准） |
 | 系统 | OriginOS 6 / Android 16 |
-| 固件 | 16.3.17.0.W10 |
-| 安全补丁 | 2026-08-01 |
-| 分区 | A/B + 动态分区 |
+| 固件 | `PD2507_A_16.1.11.1.W10.V000L1` |
+| 分区 | A/B + 动态分区，`ro.hardware=emmc` |
 
-## 功能状态
+## 怎么出包
 
-| 功能 | 状态 | 备注 |
-| --- | --- | --- |
-| 显示/触摸/亮度 | ✅ | --- |
-| data 解密（FBE） | ✅ | 输锁屏密码解密，依赖 KeyMint + Gatekeeper |
-| 安装 ZIP / 镜像 | ✅ | 含原厂完整包、boot/recovery 等分区镜像 |
-| 备份 / 恢复 | ✅ | 支持 EFS 分区与 metadata |
-| WLAN | ✅ | QCA6490，扫描 / 连接 / DHCP / 联网探测 |
-| OTG U 盘 | ✅ | 自动挂载到 `/mnt/usb`（exfat / vfat / ntfs / ext4） |
-| 震动反馈 | ✅ | 走 vivo 私有驱动的 sysfs 接口 |
-| ADB / MTP | ✅ | 解密后 MTP 可访问内部存储 |
-| fastbootd | ✅ | 电脑侧需能识别 `VID_18D1&PID_4EE0` 的 WinUSB 驱动 |
-| 截图 | ✅ | 音量+电源，解密后写入 `DCIM/Screenshots` |
+不需要本地装 NDK，也不需要下载 9 GB 全量包——CI 里全部搞定：
 
-## 与上游的差异
+1. 仓库页 → **Actions** → `build-pd2507` → **Run workflow**
+2. 约 25–40 分钟，产物在页面底部 **Artifacts**：`vendor_boot_pd2507`
 
-本仓库基于 Kirk Lin 的 Skyward 某一版快照移植，之后上游与本仓库各自演进，
-因此差异分两部分：**移植适配**（让 Skyward 在这台机器上能起来）与**后续修复**（解密/WLAN/OTG/震动等问题）。
+流水线（`.github/workflows/build-pd2507.yml` + `tools/pd2507/build.py`）：
 
-### 一、移植适配
+- 用 HTTP Range 从 vivo 官方全量包里**只取** `vendor_boot` 那一段（约 81 MB），并核对每个操作的 SHA-256；
+- 解出 RECOVERY 片段的 LZ4-legacy ramdisk（115 MB 的 cpio）；
+- 把它包成合成的 `ANDROID!` v4 boot 镜像，交给原版 `skyward-pack recovery` 做它本来做的事
+  （替换 `system/bin/recovery`、塞 `skyward/device.toml`、字体、`system-init`、快捷命令链接、`prop.default` 追加 `ro.secure=0` 等）；
+- 把装好的 ramdisk 塞回 vendor_boot 的 RECOVERY 片段，重排片段表偏移、重写 AVB footer。
 
-| 改动 | 文件 | 原因 |
-| --- | --- | --- |
-| binder 头标记探测：新增 `HEADER_SYSTEM` / `HEADER_RECOVERY` 与 `choose_header()` | `skyward-binder/src/parcel.rs`、`service.rs` | PD2301 的 recovery ramdisk 带的是**系统版 libbinder**，服务目录只认其中一种标记，猜错则所有服务调用失效 |
-| `update_prefix()` | `skyward-install/src/package.rs` | vivo 的完整包把 `payload.bin` 放在 zip 的子目录里，原版只认根目录 |
-| 触摸面板未就绪时重试 | `skyward/src/input.rs` | 触摸驱动起得慢，原版一次打开失败就放弃 |
-| 亮度范围补 `qcom,mdss-dsi-bl-max-level` | `skyward/src/ui.rs` | vivo 面板只在设备树里给标准最大值，不补就读不到背光范围 |
-| fastbootd 端口接管：`prepare_fastboot_function` / `ensure_fastboot_port` / 状态记录 | `skyward/src/ui.rs` | 原版依赖 init 的属性动作拉函数；本机 init 不总能及时建好 `ffs.fastboot` 与其链接 |
-| 开机置 `recovery.service=1` | `skyward/src/main.rs` | 原厂 init 等这个属性才加载充电与 ADSP 模块，否则读不到电量 |
-| 打包时让 adbd 以默认类启动 | `skyward-pack/src/main.rs` | 原厂 recovery 的 adbd 是 `disabled`，被替换掉的 recovery 程序不再拉起它 |
-| `--libraries` 参数 | `skyward-pack/src/main.rs` | 把恢复环境缺的库放进 ramdisk 的 `system/lib64` |
-| 去掉 `Phone.bundle` 与 APEX bundle 挂载 | `skyward-programs/src/phone.rs`、`secure.rs` 等 | 本机不做 APEX 挂载，直接用 `/system/lib64`、`/vendor/lib64`（odm 再加 `/mnt/system/...`） |
-| 移除「系统更新 / Skyward 更新」入口 | `skyward-ui/src/pages.rs`、`search.rs`、`app/nav.rs` | 本机没有可用的更新接口，避免入口点了没反应 |
-| 设备配置 | `devices/pd2301.toml` | 屏幕、触摸模块、WLAN、备份分区等按真机填写 |
+容器层是字节级可逆的：对原厂镜像做「拆开再原样装回」往返，sha256 不变。
 
-### 二、后续修复
+## 已验证 / 未完成
 
-1. **账号表补全**（`skyward-sys/src/ueventd.rs`）
-   vivo 的 `passwd/group` 里只有自家 `oem_29xx` 账号，标准 AOSP 账号全靠 bionic 内置表。
-   上游表缺 `inet`(3003) 等，导致 `ssgtzd` 的 socket 无法创建、整条加密服务链中断。
-   已补全为 bionic `android_ids` 的完整集合（33 → 55 条）。
+已验证（在构建产物上）：
 
-2. **恢复环境缺失库**（`skyward-pack` 的 `--libraries`）
-   - `android.hardware.security.{keymint,secureclock,sharedsecret}-V1-ndk_platform.so`
-     正常系统由 VNDK APEX（`/apex/com.android.vndk.v32`）提供，recovery 不挂载 APEX；
-     ramdisk 里原有的同名条目是指向 `/vendor/lib64` 的断链。
-   - `libcurl.so`：vivo 把它放在 system 分区，而 `ssgtzd` 是 vendor 程序。
-   同时修正了 `add_libraries` 不能替换符号链接条目的问题。
+- 分区大小正好 134,217,728 字节；
+- platform 片段、dtb、bootconfig、cmdline 与原厂**逐字节相同**；
+- `system/bin/recovery` 为 aarch64 ELF（8.8 MB），`system-init`、`device.toml`（codename=PD2507）、字体都在；
+- `7za / avbctl / resetprop / unzip / zstd` 五个快捷命令指向 recovery；
+- AVB footer 已按新镜像长度重写。
 
-3. **WLAN vendor 服务声明**（`[wlan] services`）
-   vivo 的 VINTF 只把 `ISupplicantVendor` 声明为 HIDL，但 QTI 的 wpa_supplicant 启动时按
-   **AIDL** 注册；servicemanager 不认就会让它立刻退出（255）。现在随 `ISupplicant` 一并告知。
+还没做：
 
-4. **OTG 主机模式**（`[usb] host_mode`）
-   vivo 的 `vusb` 驱动默认只做设备端，不写 `host_mode=enabled` 就永远枚举不出 U 盘。
+- **真机启动**（一次都没试过）；
+- 亮度：`skyward/src/ui.rs` 读的是高通 `msm_drm` 的节点与 DT 属性，MTK 要另写；
+- 震动：原版 `qcom-haptics` 路径不适用；
+- WLAN：MTK 的 connac 驱动与 supplicant 服务名要重新填；
+- 触控模块名（原厂 recovery 用 ST FTS + Novatek，节点见 `init.recovery.touch.rc`）；
+- 快充、电量等 `skyward-info` 里的高通路径。
 
-5. **震动**（`[haptics] timed`）
-   这机器没有 force-feedback 输入设备，震动由 vivo 私有驱动控制；
-   新增 sysfs 后端，写 `/sys/class/qcom-haptics/{duration,activate}`。
+## 风险
 
-6. **作者信息**（`[device] authors`）
-   显示在「设备信息 → Recovery 版本」下方。
+- 本机 `vbmeta` 的 `flags=0`，**验证启动是开着的**。解锁 BL 状态下 MTK bootloader 一般放行，但这不是保证。
+- 改的是 `vendor_boot`，正常开机也会读它——**不是「只影响 recovery」**。
+- 没有电脑就没有 fastboot 退路。刷之前务必：
 
-## 目录结构
-
-```
-.
-├── build.sh                 # 完整构建脚本
-├── devices/pd2301.toml      # PD2301 设备配置
-├── libs/                    # 恢复环境缺少的 4 个共享库
-├── upstream/                # Skyward 源码（Rust workspace）
-└── LICENSE                  # GPL-3.0
+```sh
+dd if=/dev/block/by-name/vendor_boot_a of=/sdcard/vendor_boot_a_stock.img bs=1M
+dd if=/dev/block/by-name/vendor_boot_b of=/sdcard/vendor_boot_b_stock.img bs=1M
 ```
 
-## 构建
+## 致谢与许可
 
-依赖：
+- 本体：[Kirk Lin](https://github.com/kirklin) 的 [Skyward](https://github.com/kirklin/skyward)
+- vivo 适配：[酷安 @TNTHe / @Qingizi7](https://github.com/Qingizi7/Skyward-PD2301)、@Moecho
+- 本仓库：PD2507 适配与 vendor_boot 打包流水线
 
-- Rust（版本由 `upstream/rust-toolchain.toml` 指定，当前 1.100.0）与 `aarch64-linux-android` target
-- [`cargo-ndk`](https://github.com/bbqsrc/cargo-ndk)
-- Android NDK（本项目使用 r29）
-
-```bash
-export ANDROID_NDK_HOME=/path/to/android-ndk-r29
-cargo install cargo-ndk --locked
-./build.sh
-```
-
-产物：`out/skyward-pd2301.img`（填满 recovery 分区，带 AVB footer）。
-
-> 构建需要原厂 `recovery.img` 作为底包，按官方全量包自行提取后放到 `stock/recovery.img`。
-> 该文件被 `.gitignore` 忽略，仓库不提供。
-
-## 刷入
-
-```bash
-fastboot getvar current-slot        # 确认槽位，通常是 a
-fastboot flash recovery_<slot> out/skyward-pd2301.img
-fastboot reboot recovery
-```
-
-要求：Bootloader 已解锁。首次进入后按提示输入锁屏密码解密 data。
-
-### 关于 fastbootd
-
-Skyward 的 fastbootd 使用 AOSP 标准 `VID_18D1 & PID_4EE0`，接口类为
-`Class_FF & SubClass_42 & Prot_03`。Windows 自带的 `winusb.inf` 只匹配 `Prot_01`（adb），
-所以**电脑上会显示为未知设备、`fastboot devices` 看不到**。
-装一个支持该接口的驱动即可（Google USB Driver、OPPO/vivo 售后驱动、Zadig 绑定 WinUSB 均可）。
-
-## 已知限制
-
-- 解密需要用户手动输入锁屏密码，不支持默认密码。
-- 未测试加密状态下的侧载 OTA。
-- **双系统不可用**：本机分区表没有 `init_boot_a/b`，而 Skyward 的第二系统依赖它作为启动载体，入口不会出现。
-- **系统更新检查不可用**：本机未适配 vivo 的 OTA 接口（与上游的小米协议不同），相关入口已移除。需要更新系统时，请把官方全量包放到存储或 U 盘，用「安装」直接刷入。
-
-## 开发人员名单
-
-- 致谢：原作者 [Kirk Lin](https://github.com/kirklin) —— Skyward 本体
-- 适配工作：**酷安 @TNTHe（GitHub [@Qingizi7](https://github.com/Qingizi7)）、@Moecho**
-
-本仓库由 **@Qingizi7（酷安 @TNTHe）** 维护。
+GPL-3.0-or-later。本仓库是 Skyward 的派生作品，依 GPLv3 以同一许可证分发；分发二进制时请同时提供对应源码。
 
 免费资源，禁止倒卖。如果你是买来的，那么就是被骗了。
-
-## 许可证
-
-[GPL-3.0-or-later](LICENSE)。
-
-本仓库是 Skyward 的派生作品，依 GPLv3 继续以同一许可证分发；
-分发二进制时请同时提供对应源码。
