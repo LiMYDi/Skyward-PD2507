@@ -774,6 +774,13 @@ pub mod kms {
         /// turns off. A touch controller that follows the panel, as
         /// Xiaomi's do, rests with it either way.
         pub fn rest(&mut self) -> Result<()> {
+            // Some display drivers' low-power mode does not come back on the
+            // wake path the recovery uses, leaving the panel dark with its
+            // backlight on; the panel is left running and only its backlight
+            // goes to 0, which looks the same to whoever holds the phone.
+            if true {
+                return Ok(());
+            }
             if self.power != Power::On {
                 return Ok(());
             }
