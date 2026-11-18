@@ -1840,8 +1840,19 @@ impl<'a> Pages<'a> {
             if self.app.take_dirty() || !self.surface.is_on() {
                 let t0 = Instant::now();
                 self.app.compose(&mut self.screen, &self.fonts, &self.info, &self.shown_clock, now);
+                let composed = t0.elapsed().as_micros();
+                let t1 = Instant::now();
                 self.surface.present(&self.screen)?;
-                eprintln!("frame {:?} in {} ms", self.app.screen(), t0.elapsed().as_millis());
+                let presented = t1.elapsed().as_micros();
+                // Split, so that a slow frame says whether the drawing or the
+                // handing over of the picture took the time.
+                eprintln!(
+                    "frame {:?} in {} ms (compose {} us, present {} us)",
+                    self.app.screen(),
+                    t0.elapsed().as_millis(),
+                    composed,
+                    presented
+                );
                 if let Some(path) = self.dump {
                     fs::write(path, &self.screen.data).with_context(|| format!("write {}", path.display()))?;
                 }
