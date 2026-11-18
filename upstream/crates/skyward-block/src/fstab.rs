@@ -51,16 +51,36 @@ pub fn entries(text: &str) -> Vec<Entry> {
     out
 }
 
+/// The folders a phone keeps its own table in.
+const DIRS: [&str; 2] = ["/vendor/etc", "/odm/etc"];
+
 /// Every entry of the phone's own table, read from wherever the table is.
+///
+/// A maker names the table after the hardware it was built for -- `fstab.qcom`
+/// on Qualcomm's, `fstab.mt6991` or `fstab.emmc` on others -- so every file
+/// named after one is read, rather than the one name a single platform uses.
 fn table() -> Result<Vec<Entry>> {
     let mut out = Vec::new();
-    for file in FILES {
-        let text = match std::fs::read_to_string(file) {
-            Ok(text) => text,
-            Err(e) if e.kind() == std::io::ErrorKind::NotFound => continue,
-            Err(e) => return Err(e).with_context(|| format!("read {file}")),
-        };
-        out.extend(entries(&text));
+    let mut seen = std::collections::HashSet::new();
+    for dir in DIRS {
+        let Ok(rd) = std::fs::read_dir(dir) else { continue };
+        let mut files: Vec<PathBuf> = rd
+            .filter_map(|e| e.ok())
+            .map(|e| e.path())
+            .filter(|p| p.file_name().is_some_and(|n| n.to_string_lossy().starts_with("fstab")))
+            .collect();
+        files.sort();
+        for file in files {
+            if !seen.insert(file.clone()) {
+                continue;
+            }
+            let text = match std::fs::read_to_string(&file) {
+                Ok(text) => text,
+                Err(e) if e.kind() == std::io::ErrorKind::NotFound => continue,
+                Err(e) => return Err(e).with_context(|| format!("read {}", file.display())),
+            };
+            out.extend(entries(&text));
+        }
     }
     Ok(out)
 }
