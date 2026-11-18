@@ -468,11 +468,21 @@ fn rasterize(parts: &[Part], scale: f32, size: f32) -> Coverage {
         paint.set_color(Color::WHITE);
         paint.blend_mode = if part.cut { BlendMode::Clear } else { BlendMode::SourceOver };
         match part.shape {
-            Shape::Fill(d) => art.fill_path(&path(d), &paint, FillRule::Winding, at, None),
-            Shape::EvenOdd(d) => art.fill_path(&path(d), &paint, FillRule::EvenOdd, at, None),
+            Shape::Fill(d) => {
+                if let Some(path) = path(d) {
+                    art.fill_path(&path, &paint, FillRule::Winding, at, None);
+                }
+            }
+            Shape::EvenOdd(d) => {
+                if let Some(path) = path(d) {
+                    art.fill_path(&path, &paint, FillRule::EvenOdd, at, None);
+                }
+            }
             Shape::Line(d, width) => {
-                let stroke = Stroke { width, line_cap: LineCap::Round, line_join: LineJoin::Round, ..Stroke::default() };
-                art.stroke_path(&path(d), &paint, &stroke, at, None);
+                if let Some(path) = path(d) {
+                    let stroke = Stroke { width, line_cap: LineCap::Round, line_join: LineJoin::Round, ..Stroke::default() };
+                    art.stroke_path(&path, &paint, &stroke, at, None);
+                }
             }
         }
     }
@@ -480,10 +490,16 @@ fn rasterize(parts: &[Part], scale: f32, size: f32) -> Coverage {
 }
 
 /// The outline SVG path data `d` describes.
-fn path(d: &str) -> tiny_skia::Path {
+fn path(d: &str) -> Option<tiny_skia::Path> {
     let mut b = PathBuilder::new();
     for segment in SimplifyingPathParser::from(d) {
-        match segment.unwrap_or_else(|e| panic!("an icon's outline {d:?} does not read: {e}")) {
+        let Ok(segment) = segment else {
+            // A decorative outline that does not read leaves the rest of the
+            // glyph as it is, rather than taking the recovery down with it.
+            eprintln!("an icon's outline {d:?} does not read");
+            return None;
+        };
+        match segment {
             SimplePathSegment::MoveTo { x, y } => b.move_to(x as f32, y as f32),
             SimplePathSegment::LineTo { x, y } => b.line_to(x as f32, y as f32),
             SimplePathSegment::Quadratic { x1, y1, x, y } => b.quad_to(x1 as f32, y1 as f32, x as f32, y as f32),
@@ -493,7 +509,15 @@ fn path(d: &str) -> tiny_skia::Path {
             SimplePathSegment::ClosePath => b.close(),
         }
     }
-    b.finish().unwrap_or_else(|| panic!("an icon's outline {d:?} encloses nothing"))
+    match b.finish() {
+        Some(path) => Some(path),
+        None => {
+            // Such an outline is skipped: a stroke the parser turns into no
+            // segment at all is not worth stopping the recovery for.
+            eprintln!("an icon's outline {d:?} encloses nothing");
+            None
+        }
+    }
 }
 
 #[cfg(test)]
