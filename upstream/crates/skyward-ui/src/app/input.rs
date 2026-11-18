@@ -106,6 +106,12 @@ impl App {
                         .map(|h| (h.action, h.rect))
                 };
                 let action = hit.map(|h| h.0);
+                eprintln!(
+                    "press at {x:.0},{y:.0} + scroll {:.0} -> {:?} (a frame: {})",
+                    scroll,
+                    action,
+                    self.frame.is_some()
+                );
                 // A row of the page darkens behind its words a moment after
                 // the finger lands on it, if the finger stays.
                 let row = hit
