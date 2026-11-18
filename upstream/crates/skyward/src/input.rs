@@ -150,9 +150,23 @@ impl Panel {
                     let x = (self.raw.0 - self.x_range.0) as f32 / span(self.x_range) * w;
                     let y = (self.raw.1 - self.y_range.0) as f32 / span(self.y_range) * h;
                     match (self.was_down, self.down) {
-                        (false, true) => out.push(Event::Touch(Touch::Down(x, y), at)),
-                        (true, true) if self.moved => out.push(Event::Touch(Touch::Move(x, y), at)),
-                        (true, false) => out.push(Event::Touch(Touch::Up, at)),
+                        (false, true) => {
+                            eprintln!("touch down at {x:.0},{y:.0}");
+                            out.push(Event::Touch(Touch::Down(x, y), at));
+                        }
+                        (true, true) if self.moved => {
+                            // A move every few hundred milliseconds, so that
+                            // a log read after the fact still shows the drag
+                            // without the file growing by every frame.
+                            if at % 500 < 40 {
+                                eprintln!("touch move at {x:.0},{y:.0}");
+                            }
+                            out.push(Event::Touch(Touch::Move(x, y), at));
+                        }
+                        (true, false) => {
+                            eprintln!("touch up at {x:.0},{y:.0}");
+                            out.push(Event::Touch(Touch::Up, at));
+                        }
                         _ => {}
                     }
                     self.was_down = self.down;
@@ -328,6 +342,7 @@ impl Inputs {
                         if let EventSummary::Key(_, code, value @ (0 | 1)) = e.destructure()
                             && let Some(k) = key_of(code)
                         {
+                            eprintln!("key {k:?} {}", if value == 1 { "down" } else { "up" });
                             out.push(Event::Key(k, value == 1));
                         }
                     }
