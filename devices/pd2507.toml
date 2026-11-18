@@ -1,0 +1,39 @@
+# Skyward for vivo iQOO Z10 Turbo+ (PD2507 / V2507A)
+#
+# PD2507 has no recovery partition: recovery is the RECOVERY fragment inside
+# vendor_boot, and the stock ramdisk is LZ4-legacy packed.  tools/pd2507/build.py
+# fetches that fragment out of vivo's full package and puts Skyward's ramdisk
+# back into the same image, so nothing here needs a 9 GB download or a
+# recovery partition.
+
+[device]
+codename = "PD2507"
+brand = "vivo"
+model = "iQOO Z10 Turbo+"
+shown_model = "iQOO Z10 Turbo+"
+ab = true
+soc = { hans = "天玑9400+", hant = "天璣9400+", en = "Dimensity 9400+" }
+os_version_prop = "ro.vivo.build.version.incremental"
+authors = "移植：@Qingizi7 的 PD2301 版本 + 本机适配"
+
+# The panel is 1260x2800 at 560 dpi, the same shape the PD2301 port uses.
+# Density is the stock software density; Skyward rescales by it alone.
+[display]
+width = 1260
+height = 2800
+density = 560
+diagonal = 6.78
+
+# Kernel modules live in vendor and vendor_dlkm on this platform.  The
+# touchscreen driver is loaded by the stock recovery's own init, so nothing
+# is forced here at first: bring-up starts with the stock set.
+[modules]
+sources = ["vendor", "vendor_dlkm"]
+load = []
+
+# Recovery's own view of the partitions it backs up.  MTK keeps the radio
+# calibration in nvdata/nvcfg and the sensors' in persist; the secure
+# partitions are left alone.
+[backup]
+efs = ["nvdata", "nvcfg", "persist", "proinfo"]
+data_skipped = ["vendor/fingerprint", "vendor/faceunlock"]
