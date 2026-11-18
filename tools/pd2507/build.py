@@ -175,6 +175,17 @@ def lz4_legacy_encode(data, block=8 << 20):
     return bytes(out)
 
 
+def lz4_frame_encode(data):
+    """A modern LZ4 frame — what skyward-pack's decoder reads."""
+    import lz4.frame
+    return lz4.frame.compress(bytes(data), compression_level=9)
+
+
+def lz4_frame_decode(data):
+    import lz4.frame
+    return lz4.frame.decompress(bytes(data))
+
+
 # --------------------------------------------------------------------------
 # vendor_boot
 # --------------------------------------------------------------------------
@@ -348,7 +359,9 @@ def main(argv=None):
     print("recovery ramdisk: %d bytes compressed, %d bytes of cpio" % (len(frag["data"]), len(cpio)))
     synth = os.path.join(a.work, "synth_boot.img")
     dressed = os.path.join(a.work, "dressed_boot.img")
-    open(synth, "wb").write(boot_image(frag["data"], len(raw)))
+    # skyward-pack decodes a modern LZ4 frame; the stock fragment is legacy
+    # framing, so hand it the same cpio in a frame and take back what it writes.
+    open(synth, "wb").write(boot_image(lz4_frame_encode(cpio), len(raw)))
 
     cmd = [a.pack, "recovery", "--stock", synth, "--binary", a.binary,
            "--system-init", a.system_init, "--config", a.config,
@@ -363,7 +376,10 @@ def main(argv=None):
 
     new_ramdisk = boot_ramdisk(open(dressed, "rb").read())
     if new_ramdisk[:4] != b"\x02\x21\x4c\x18":
-        print("note: skyward-pack wrote the ramdisk in another framing (%s)" % new_ramdisk[:4].hex())
+        # Whatever framing came back, the fragment must be legacy LZ4 for the
+        # kernel's initramfs unpacker to read it.
+        print("re-wrapping the ramdisk from %s into legacy framing" % new_ramdisk[:4].hex())
+        new_ramdisk = lz4_legacy_encode(lz4_frame_decode(new_ramdisk))
     frag["data"] = new_ramdisk
     image = vb.with_avb(vb.build())
     if len(image) > len(raw):
