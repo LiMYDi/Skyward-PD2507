@@ -168,10 +168,12 @@ impl App {
         // What the page is drawn at, so that a log read later says whether a
         // frame was drawn blank because the page had drifted.
         eprintln!(
-            "compose {:?} scroll {:.1} pull {:.1} bounce {} drag {}",
+            "compose {:?} scroll {:.1} pull {:.1} content {:.1} screen {:.1} bounce {} drag {}",
             self.screen(),
             self.top().1,
             self.pull,
+            self.height,
+            self.h as f32,
             self.bounce.is_some(),
             matches!(self.drag, Drag::Scroll { .. })
         );
