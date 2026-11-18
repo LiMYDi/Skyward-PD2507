@@ -82,7 +82,9 @@ const HELD_SCREENSHOTS: &str = "/skyward/run/screenshots";
 
 /// The panel backlight under /sys/class/backlight.
 struct Backlight {
-    path: PathBuf,
+    /// The file the level is written to; none when this kernel names no
+    /// backlight device, as some vendors' recovery kernels do.
+    path: Option<PathBuf>,
     /// The raw level at the top of the slider: the panel's normal maximum.
     top: u32,
     /// The raw level last written; at first the one the bootloader left.
@@ -92,17 +94,22 @@ struct Backlight {
 impl Backlight {
     fn open() -> Result<Self> {
         let mut dirs: Vec<PathBuf> = fs::read_dir("/sys/class/backlight")
-            .context("read /sys/class/backlight")?
-            .map(|e| e.map(|e| e.path()))
-            .collect::<std::io::Result<_>>()?;
+            .map(|rd| rd.filter_map(|e| e.ok()).map(|e| e.path()).collect())
+            .unwrap_or_default();
         dirs.sort();
         // Qualcomm panels expose panel0-backlight; take it when present.
         let dir = dirs
             .iter()
             .find(|d| d.file_name().is_some_and(|n| n == "panel0-backlight"))
-            .or(dirs.first())
-            .ok_or_else(|| anyhow!("no backlight device"))?
-            .clone();
+            .or_else(|| dirs.first())
+            .cloned();
+        // A phone whose kernel leaves the panel at the level the bootloader
+        // set runs without the slider moving: no file to write, nothing to
+        // read, and every other page works as it does elsewhere.
+        let Some(dir) = dir else {
+            eprintln!("no backlight device; running without brightness control");
+            return Ok(Backlight { path: None, top: 1, level: 1 });
+        };
         let read = |name: &str| -> Result<u32> {
             fs::read_to_string(dir.join(name))
                 .with_context(|| format!("read {}/{name}", dir.display()))?
@@ -112,18 +119,22 @@ impl Backlight {
         };
         let top = normal_max(read("max_brightness")?)?;
         let level = read("brightness")?;
-        Ok(Backlight { path: dir.join("brightness"), top, level })
+        Ok(Backlight { path: Some(dir.join("brightness")), top, level })
     }
 
     /// Light the panel at `level` of its normal maximum, or turn it off
     /// with `None`. The file is written only when the raw level changes.
     fn show(&mut self, level: Option<f32>) -> Result<()> {
-        let raw = level.map_or(0, |v| ((v.clamp(0.0, 1.0) * self.top as f32).round() as u32).max(1));
-        if raw != self.level {
-            fs::write(&self.path, raw.to_string()).with_context(|| format!("write {}", self.path.display()))?;
-            eprintln!("backlight {raw}");
-            self.level = raw;
+        let top = self.top.max(1);
+        let raw = level.map_or(0, |v| ((v.clamp(0.0, 1.0) * top as f32).round() as u32).max(1));
+        if raw == self.level {
+            return Ok(());
         }
+        if let Some(path) = &self.path {
+            fs::write(path, raw.to_string()).with_context(|| format!("write {}", path.display()))?;
+        }
+        eprintln!("backlight {raw}");
+        self.level = raw;
         Ok(())
     }
 }
