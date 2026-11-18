@@ -1,14 +1,17 @@
 name: build-pd2507
 
-# Builds Skyward for the vivo iQOO Z10 Turbo+ (PD2507 / V2507A) from Kirk Lin's
-# upstream, on a normal x86_64 runner, and uploads a flashable vendor_boot
-# image.  Nothing here touches a phone: the stock image is taken out of vivo's
-# own full package over HTTP ranges.
+# Builds Skyward for the vivo iQOO Z10 Turbo+ (PD2507 / V2507A) on a normal
+# x86_64 runner and uploads a flashable vendor_boot image.  Nothing here
+# touches a phone.
 #
 # PD2507 has no recovery partition: recovery is the RECOVERY fragment inside
 # vendor_boot, and the stock ramdisk is LZ4-legacy packed.  tools/pd2507/build.py
-# pulls that fragment out of the package, hands it to skyward-pack as a boot
-# image, and puts the result back into the same vendor_boot.
+# pulls that fragment out of vivo's own full package (or out of a vendor_boot
+# you hand it), gives it to skyward-pack as a boot image, and puts the result
+# back into the same image.
+#
+# Sources live in this repository's upstream/ folder (it is a fork of the
+# PD2301 port), so every cargo call runs from there.
 
 on:
   workflow_dispatch:
@@ -25,7 +28,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Rust toolchain (rust-toolchain.toml pins it)
+      - name: Rust toolchain (upstream/rust-toolchain.toml pins it)
+        working-directory: upstream
         run: |
           rustup show
           rustup target list --installed
@@ -49,12 +53,15 @@ jobs:
           pip install --no-cache-dir zstandard lz4
 
       - name: Build skyward-pack (host)
+        working-directory: upstream
         run: cargo build --release -p skyward-pack
 
       - name: Build skyward (arm64)
+        working-directory: upstream
         run: cargo ndk -t arm64-v8a --platform 30 build --release -p skyward
 
       - name: Build skyward-system-init (static)
+        working-directory: upstream
         env:
           RUSTFLAGS: "-C target-feature=+crt-static"
         run: cargo ndk -t arm64-v8a --platform 30 build --release -p skyward-system-init --target-dir target/system-init
@@ -64,11 +71,11 @@ jobs:
           EXTRA=""
           if [ -n "${{ inputs.stock_url }}" ]; then EXTRA="--stock-url ${{ inputs.stock_url }}"; fi
           python3 tools/pd2507/build.py \
-            --pack target/release/skyward-pack \
-            --binary target/aarch64-linux-android/release/skyward \
-            --system-init target/system-init/aarch64-linux-android/release/system-init \
+            --pack upstream/target/release/skyward-pack \
+            --binary upstream/target/aarch64-linux-android/release/skyward \
+            --system-init upstream/target/system-init/aarch64-linux-android/release/system-init \
             --config devices/pd2507.toml \
-            --fonts resources/fonts \
+            --fonts upstream/resources/fonts \
             --work out/pd2507 \
             $EXTRA \
             --out out/vendor_boot_pd2507.img
