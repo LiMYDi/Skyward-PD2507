@@ -2602,7 +2602,12 @@ impl Pages<'_> {
                     skyward_sys::kmsg(&format!("asked on the recovery socket: {asked:?}"))?;
                     answer(asked, self.fastboot)
                 }
-                Incoming::Input(Event::Touch(t, at)) => self.app.touch(t, &self.fonts, at),
+                Incoming::Input(Event::Touch(t, at)) => {
+                    // Which page took the touch, so that a log read later
+                    // shows where a press landed as well as what it did.
+                    eprintln!("touch {t:?} on {:?}", self.app.screen());
+                    self.app.touch(t, &self.fonts, at)
+                }
                 Incoming::Input(Event::Key(k, true)) => self.app.key(k, now),
                 Incoming::Input(Event::Key(k, false)) => self.app.key_up(k, now),
             };
