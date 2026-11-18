@@ -57,7 +57,7 @@ impl App {
         self.dirty = true;
         let mut d = d;
         if self.pull != 0.0 {
-            let pull = self.pull + d;
+            let pull = (self.pull + d).clamp(-PULL_MOST, PULL_MOST);
             if pull * self.pull > 0.0 {
                 self.pull = pull;
                 return;
@@ -69,9 +69,14 @@ impl App {
         let top = self.top_mut();
         let next = top.1 + d;
         top.1 = next.clamp(0.0, max);
-        self.pull = next - top.1;
+        self.pull = (next - top.1).clamp(-PULL_MOST, PULL_MOST);
     }
 }
+
+/// How far past an end the finger's travel is kept: enough for the page to
+/// answer with a little give, never so much that the finger has to undo
+/// thousands of pixels before the page moves again.
+const PULL_MOST: f32 = 36.0;
 
 #[cfg(test)]
 mod tests {
