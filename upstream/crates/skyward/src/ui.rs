@@ -96,6 +96,19 @@ impl Backlight {
         let mut dirs: Vec<PathBuf> = fs::read_dir("/sys/class/backlight")
             .map(|rd| rd.filter_map(|e| e.ok()).map(|e| e.path()).collect())
             .unwrap_or_default();
+        // Panels whose driver keeps the backlight among the LEDs, as some
+        // MediaTek ones do, are found under /sys/class/leds instead; the
+        // one whose name says backlight is the panel's.
+        if dirs.is_empty() {
+            dirs = fs::read_dir("/sys/class/leds")
+                .map(|rd| {
+                    rd.filter_map(|e| e.ok())
+                        .map(|e| e.path())
+                        .filter(|p| p.file_name().is_some_and(|n| n.to_string_lossy().contains("backlight")))
+                        .collect()
+                })
+                .unwrap_or_default();
+        }
         dirs.sort();
         // Qualcomm panels expose panel0-backlight; take it when present.
         let dir = dirs
@@ -117,8 +130,13 @@ impl Backlight {
                 .parse()
                 .with_context(|| format!("parse {name}"))
         };
-        let top = normal_max(read("max_brightness")?)?;
-        let level = read("brightness")?;
+        // An LED-style backlight may name no maximum; the kernel's usual
+        // 0-255 range is what its brightness takes then.
+        let top = match read("max_brightness") {
+            Ok(max) => normal_max(max)?,
+            Err(_) => 255,
+        };
+        let level = read("brightness").unwrap_or(top);
         Ok(Backlight { path: Some(dir.join("brightness")), top, level })
     }
 
