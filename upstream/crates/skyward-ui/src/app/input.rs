@@ -112,6 +112,18 @@ impl App {
                     action,
                     self.frame.is_some()
                 );
+                if action.is_none()
+                    && let Some(fr) = self.frame.as_ref()
+                {
+                    // Where this page thinks its buttons are, so that a press
+                    // that hit nothing can be compared with what is drawn.
+                    let rects: Vec<_> = fr
+                        .hits
+                        .iter()
+                        .map(|h| (h.action.clone(), h.rect.y as i32, h.rect.h as i32))
+                        .collect();
+                    eprintln!("  its hits: {rects:?}");
+                }
                 // A row of the page darkens behind its words a moment after
                 // the finger lands on it, if the finger stays.
                 let row = hit
