@@ -165,6 +165,16 @@ impl App {
     /// while a cable has just gone in, both as dark as the content stands
     /// as the panel goes off or comes up.
     pub fn compose(&mut self, out: &mut Canvas, f: &Fonts, info: &DeviceInfo, clock: &str, now: u64) {
+        // What the page is drawn at, so that a log read later says whether a
+        // frame was drawn blank because the page had drifted.
+        eprintln!(
+            "compose {:?} scroll {:.1} pull {:.1} bounce {} drag {}",
+            self.screen(),
+            self.top().1,
+            self.pull,
+            self.bounce.is_some(),
+            matches!(self.drag, Drag::Scroll { .. })
+        );
         let charge = self.charging.as_ref().map_or(0.0, |c| c.shown.level(now));
         if charge < 1.0 {
             self.compose_page(out, f, info, clock, now);
