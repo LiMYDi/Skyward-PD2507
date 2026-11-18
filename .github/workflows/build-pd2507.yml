@@ -1,0 +1,78 @@
+name: build-pd2507
+
+# Builds Skyward for the vivo iQOO Z10 Turbo+ (PD2507 / V2507A) on a normal
+# x86_64 runner and uploads a flashable vendor_boot image.  Nothing here
+# touches a phone: the stock image is taken out of vivo's own full package
+# over HTTP ranges.
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/build-pd2507.yml"
+      - "tools/pd2507/**"
+      - "devices/pd2507.toml"
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 150
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Rust toolchain (upstream/rust-toolchain.toml pins it)
+        working-directory: upstream
+        run: |
+          rustup show
+          rustup target list --installed
+
+      - name: Android NDK r29
+        run: |
+          curl -sSLo /tmp/ndk.zip https://dl.google.com/android/repository/android-ndk-r29-linux.zip
+          unzip -q /tmp/ndk.zip -d "$HOME"
+          NDK="$(find "$HOME" -maxdepth 1 -type d -name 'android-ndk-r29*' | head -1)"
+          echo "ANDROID_NDK_HOME=$NDK" >> "$GITHUB_ENV"
+          echo "ANDROID_NDK_ROOT=$NDK" >> "$GITHUB_ENV"
+          echo "NDK at $NDK"
+
+      - name: cargo-ndk
+        run: cargo install cargo-ndk --locked
+
+      - name: Python bits for the OTA reader
+        run: pip install --no-cache-dir zstandard lz4
+
+      - name: Build skyward-pack (host)
+        working-directory: upstream
+        run: cargo build --release -p skyward-pack
+
+      - name: Build skyward (arm64)
+        working-directory: upstream
+        run: cargo ndk -t arm64-v8a --platform 30 build --release -p skyward
+
+      - name: Build skyward-system-init (static)
+        working-directory: upstream
+        env:
+          RUSTFLAGS: "-C target-feature=+crt-static"
+        run: cargo ndk -t arm64-v8a --platform 30 build --release -p skyward-system-init --target-dir target/system-init
+
+      - name: Pack vendor_boot for PD2507
+        run: |
+          python3 tools/pd2507/build.py \
+            --pack upstream/target/release/skyward-pack \
+            --binary upstream/target/aarch64-linux-android/release/skyward \
+            --system-init upstream/target/system-init/aarch64-linux-android/release/system-init \
+            --config devices/pd2507.toml \
+            --fonts upstream/resources/fonts \
+            --work out/pd2507 \
+            --out out/vendor_boot_pd2507.img
+
+      - name: Sum
+        run: sha256sum out/vendor_boot_pd2507.img
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: vendor_boot_pd2507
+          path: out/vendor_boot_pd2507.img
+          compression-level: 0
+          retention-days: 14
