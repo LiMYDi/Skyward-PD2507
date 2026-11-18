@@ -38,8 +38,8 @@ impl App {
             let t = self.theme();
             let screen = self.screen();
             for rows in std::mem::take(&mut self.stale) {
-                let _band = Band { rows, cols: (0, self.cols) };
-                let cx = Ctx { t: &t, f, info, state: &self.state, term: self.term.as_ref(), band: None };
+                let band = Band { rows, cols: (0, self.cols) };
+                let cx = Ctx { t: &t, f, info, state: &self.state, term: self.term.as_ref(), band: Some(band) };
                 let fresh = pages::render(screen, &cx);
                 let mut canvas = self.frame.take().expect("checked above").canvas;
                 assert_eq!(canvas.h, fresh.canvas.h, "a page drawn again in part is as tall as it was");
@@ -51,12 +51,8 @@ impl App {
             let t = self.theme();
             let screen = self.screen();
             let first = self.top().1.max(0.0) as u32;
-            // Drawing only the rows around the finger leaves the rest of the
-            // page empty, which shows as white once the page is scrolled far
-            // enough for a band to be drawn where none was: the whole page is
-            // drawn every time instead.
-            let _band = Band { rows: (first, first + self.h), cols: (0, wide.min(self.w)) };
-            let cx = Ctx { t: &t, f, info, state: &self.state, term: self.term.as_ref(), band: None };
+            let band = Band { rows: (first, first + self.h), cols: (0, wide.min(self.w)) };
+            let cx = Ctx { t: &t, f, info, state: &self.state, term: self.term.as_ref(), band: Some(band) };
             let mut frame = pages::render(screen, &cx);
             // A page drawn in part across holds its rows whole, the columns
             // of them drawn on as they are needed.
