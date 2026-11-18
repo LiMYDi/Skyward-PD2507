@@ -161,13 +161,16 @@ impl Panel {
                 _ if self.dropped => {}
                 EventSummary::AbsoluteAxis(_, AbsoluteAxisCode::ABS_MT_SLOT, v) => self.slot = v,
                 EventSummary::AbsoluteAxis(_, AbsoluteAxisCode::ABS_MT_TRACKING_ID, v) if self.slot == 0 => self.down = v >= 0,
+                // Some panels report the same coordinates again with every
+                // frame; only a coordinate that differs is the finger moving,
+                // or a tap would read as a drag and never become a click.
                 EventSummary::AbsoluteAxis(_, AbsoluteAxisCode::ABS_MT_POSITION_X, v) if self.slot == 0 => {
+                    self.moved |= v != self.raw.0;
                     self.raw.0 = v;
-                    self.moved = true;
                 }
                 EventSummary::AbsoluteAxis(_, AbsoluteAxisCode::ABS_MT_POSITION_Y, v) if self.slot == 0 => {
+                    self.moved |= v != self.raw.1;
                     self.raw.1 = v;
-                    self.moved = true;
                 }
                 _ => {}
             }
