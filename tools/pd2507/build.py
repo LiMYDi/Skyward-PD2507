@@ -332,6 +332,7 @@ def main(argv=None):
     ap = argparse.ArgumentParser()
     ap.add_argument("--work", default="out/pd2507")
     ap.add_argument("--stock", help="use this vendor_boot image instead of fetching it")
+    ap.add_argument("--stock-url", help="download the stock vendor_boot from this URL instead of the package")
     ap.add_argument("--pack", help="path to a built skyward-pack; without it only the stock image is fetched")
     ap.add_argument("--binary", help="skyward built for aarch64-linux-android")
     ap.add_argument("--system-init", help="skyward-system-init, linked statically")
@@ -343,7 +344,20 @@ def main(argv=None):
     a = ap.parse_args(argv)
 
     os.makedirs(a.work, exist_ok=True)
-    stock = a.stock or fetch_partition("vendor_boot", os.path.join(a.work, "stock_vendor_boot.img"))
+    if a.stock:
+        stock = a.stock
+    elif a.stock_url:
+        stock = os.path.join(a.work, "stock_vendor_boot.img")
+        if not os.path.exists(stock):
+            print("downloading %s" % a.stock_url)
+            with urllib.request.urlopen(urllib.request.Request(a.stock_url, headers={"User-Agent": "dsh"}), timeout=600) as r, open(stock, "wb") as fh:
+                while True:
+                    buf = r.read(1 << 20)
+                    if not buf:
+                        break
+                    fh.write(buf)
+    else:
+        stock = fetch_partition("vendor_boot", os.path.join(a.work, "stock_vendor_boot.img"))
     raw = open(stock, "rb").read()
     vb = VendorBoot(raw)
     frag = vb.recovery()
