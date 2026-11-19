@@ -237,11 +237,7 @@ impl App {
                 }
                 Drag::Scroll { .. } if self.pull != 0.0 => {
                     // A page let go past its end springs back.
-                    // The further the page was pulled, the longer it takes to
-                    // come back, so that a long pull does not snap.
-                    let out = (self.pull.abs() / self.h as f32).clamp(0.0, 1.0);
-                    let period = 0.38 + 0.32 * out;
-                    self.bounce = Some(Spring::new(now, motion::rubber(self.pull, self.h as f32), 0.0, period));
+                    self.bounce = Some(Spring::new(now, motion::rubber(self.pull, self.h as f32), 0.0, 0.4));
                     self.pull = 0.0;
                     self.dirty = true;
                 }
