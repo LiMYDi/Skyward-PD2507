@@ -52,3 +52,18 @@ logs = [
     "/data/vendor/tombstones",
     "/data/vendor/wifi",
 ]
+
+# MTK 的 WLAN：驱动模块与高通那套完全不同。模块名取自全量包的 vendor_dlkm
+# （kowlan_drv_gen4m_6991_6653 是 MT6991 + MT6653 这一版），conninfra 是它依赖
+# 的通信基础设施，必须先加载。原厂的 init.recovery.wifi.rc 里写的是
+# wlan_drv_gen4m_6985_6639，那是同系列另一颗芯片用的，不要照抄。
+[wlan]
+modules = ["conninfra", "kowlan_drv_gen4m_6991_6653"]
+interface = "wlan0"
+supplicant = "/vendor/bin/hw/wpa_supplicant"
+service = "android.hardware.wifi.supplicant.ISupplicant/default"
+probe = "http://wifi.vivo.com.cn/generate_204"
+
+# 振动驱动是 vivo 自己的 vivo_haptic_core.ko，但它的 sysfs 节点名还没在真机
+# 上确认（/sys/class/leds/vibrator 下有没有 duration/activate 待查）。在确认
+# 之前不写 [haptics]：节点打不开会让 Haptics::open 失败，界面直接起不来。
