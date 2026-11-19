@@ -57,7 +57,7 @@ impl App {
         self.dirty = true;
         let mut d = d;
         if self.pull != 0.0 {
-            let pull = (self.pull + d).clamp(-PULL_MOST, PULL_MOST);
+            let pull = self.pull + d;
             if pull * self.pull > 0.0 {
                 self.pull = pull;
                 return;
@@ -69,7 +69,7 @@ impl App {
         let top = self.top_mut();
         let next = top.1 + d;
         top.1 = next.clamp(0.0, max);
-        self.pull = (next - top.1).clamp(-PULL_MOST, PULL_MOST);
+        self.pull = next - top.1;
     }
 }
 
