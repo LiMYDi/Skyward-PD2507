@@ -3,8 +3,11 @@
 vivo iQOO Z10 Turbo+ 的第三方 Recovery —— 基于 [kirklin/skyward](https://github.com/kirklin/skyward)，
 经由 [Qingizi7/Skyward-PD2301](https://github.com/Qingizi7/Skyward-PD2301)（酷安 @TNTHe 的 iQOO Neo8 适配）移植而来。
 
-> ⚠️ **本仓库产出的镜像还没有在任何真机上启动过。** 结构校验通过，但没有跑起来过，
-> 刷入前请先备份原厂 `vendor_boot`，详见下文「风险」。
+> ✅ **已在 PD2507 真机上跑通**：启动、显示、144 Hz 触控、锁屏密码解密 data、
+> 备份 / 恢复 / 安装 / 挂载 / 重启菜单均可用。仍建议刷入前备份原厂 `vendor_boot`。
+>
+> ⚠️ 已知未解决：顶部残影（三缓冲轮换）、滑动与回弹帧率（每帧 14 MB 上屏拷贝约 5.3 ms，
+> 逼近 144 Hz 的 6.9 ms 预算）。
 
 ---
 
