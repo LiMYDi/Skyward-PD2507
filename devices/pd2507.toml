@@ -14,7 +14,7 @@ shown_model = "iQOO Z10 Turbo+"
 ab = true
 soc = { hans = "天玑9400+", hant = "天璣9400+", en = "Dimensity 9400+" }
 os_version_prop = "ro.vivo.build.version.incremental"
-authors = "移植：@Qingizi7 的 PD2301 版本 + 本机适配"
+authors = "移植：@Qingizi7 / @Moecho（PD2301）；PD2507 适配：LiMy"
 
 # The panel is 1260x2800 at 560 dpi, the same shape the PD2301 port uses.
 # Density is the stock software density; Skyward rescales by it alone.
