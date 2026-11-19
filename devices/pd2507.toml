@@ -36,4 +36,19 @@ load = []
 # partitions are left alone.
 [backup]
 efs = ["nvdata", "nvcfg", "persist", "proinfo"]
-data_skipped = ["vendor/fingerprint", "vendor/faceunlock"]
+data_skipped = ["vendor/fingerprint", "vendor/faceunlock", "vendor/tzstorage", "vendor/qtee", "vendor/tui", "vendor/esehal"]
+
+# vivo 在 data 分区里放日志与崩溃记录的目录（照 iQOO 11S 的 PD2304 配置搬来，
+# 这台机器的同款目录在真机上确认存在）。清「日志」时只清里面的文件，保留目录。
+[wipe]
+logs = [
+    "/data/bbklog",
+    "/data/logData",
+    "/data/logIface",
+    "/data/vivodump",
+    "/data/vendor/bbklog",
+    "/data/vendor/ramdump",
+    "/data/vendor/ssrdump",
+    "/data/vendor/tombstones",
+    "/data/vendor/wifi",
+]
