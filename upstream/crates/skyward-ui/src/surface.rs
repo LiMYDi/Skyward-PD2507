@@ -871,14 +871,24 @@ pub mod kms {
             let pitch = buffer::Buffer::pitch(&buf.db) as usize;
             let row = self.w as usize * 4;
             let dst = unsafe { std::slice::from_raw_parts_mut(buf.map, buf.len) };
-            for y in 0..self.h as usize {
-                let src = &canvas.data[y * row..(y + 1) * row];
-                let out = &mut dst[y * pitch..y * pitch + row];
-                match order {
-                    Order::Rgba => out.copy_from_slice(src),
-                    Order::Bgra => {
-                        for (o, s) in out.as_chunks_mut::<4>().0.iter_mut().zip(src.as_chunks::<4>().0) {
-                            *o = [s[2], s[1], s[0], s[3]];
+            let whole = row * self.h as usize;
+            match (order, pitch == row) {
+                // The common case: the buffer has no padding and the bytes go
+                // over as they are, so the frame moves in one copy instead of
+                // one per row, which is what the panel's 144 frames a second
+                // leave time for.
+                (Order::Rgba, true) => dst[..whole].copy_from_slice(&canvas.data[..whole]),
+                (order, _) => {
+                    for y in 0..self.h as usize {
+                        let src = &canvas.data[y * row..(y + 1) * row];
+                        let out = &mut dst[y * pitch..y * pitch + row];
+                        match order {
+                            Order::Rgba => out.copy_from_slice(src),
+                            Order::Bgra => {
+                                for (o, s) in out.as_chunks_mut::<4>().0.iter_mut().zip(src.as_chunks::<4>().0) {
+                                    *o = [s[2], s[1], s[0], s[3]];
+                                }
+                            }
                         }
                     }
                 }
