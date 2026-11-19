@@ -1548,16 +1548,11 @@ impl App {
     /// How far past its end the page shows at `now`: negative past the
     /// top, positive past the bottom.
     fn overscroll(&self, now: u64) -> f32 {
-        // The page answers a finger past its end, but only a little: enough
-        // that the end feels elastic, never enough to open a band of empty
-        // page that reads as the screen going blank.
-        const MOST: f32 = 28.0;
-        let out = if self.pull != 0.0 {
+        if self.pull != 0.0 {
             motion::rubber(self.pull, self.h as f32)
         } else {
             self.bounce.map_or(0.0, |b| b.at(now).0)
-        };
-        out.clamp(-MOST, MOST)
+        }
     }
 
     /// Something laid over the page changed (the clock): compose again.
